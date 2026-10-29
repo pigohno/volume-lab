@@ -82,3 +82,6 @@ end $$;
 -- 공유 링크는 로그인하지 않은 사람도 열람 가능 (읽기 전용)
 drop policy if exists "public read" on public.vl_shares;
 create policy "public read" on public.vl_shares for select to anon, authenticated using (true);
+
+-- API가 새 테이블을 바로 인식하도록 스키마 캐시 새로고침
+notify pgrst, 'reload schema';
