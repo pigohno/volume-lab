@@ -21,7 +21,7 @@ import { Progress } from "@/components/ui/progress";
 async function load(id: string): Promise<SharePayload | null> {
   if (id.startsWith("l.")) return decodeShare(id);
   if (!supabaseEnabled) return null;
-  const { data } = await getSupabase().from("shares").select("payload").eq("id", id).maybeSingle();
+  const { data } = await getSupabase().from("vl_shares").select("payload").eq("id", id).maybeSingle();
   return (data?.payload as SharePayload) ?? null;
 }
 

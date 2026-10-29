@@ -55,12 +55,12 @@ export const supabaseRepo: Repo = {
   async loadAll() {
     const sb = getSupabase();
     const [w, m, i, g, f, e] = await Promise.all([
-      check(sb.from("workouts").select("*").order("date", { ascending: false }).limit(5000)),
-      check(sb.from("meals").select("*").order("date", { ascending: false }).limit(5000)),
-      check(sb.from("inbody").select("*").order("date", { ascending: false }).limit(1000)),
-      check(sb.from("goals").select("goals").maybeSingle()),
-      check(sb.from("custom_foods").select("data")),
-      check(sb.from("custom_exercises").select("data")),
+      check(sb.from("vl_workouts").select("*").order("date", { ascending: false }).limit(5000)),
+      check(sb.from("vl_meals").select("*").order("date", { ascending: false }).limit(5000)),
+      check(sb.from("vl_inbody").select("*").order("date", { ascending: false }).limit(1000)),
+      check(sb.from("vl_goals").select("goals").maybeSingle()),
+      check(sb.from("vl_custom_foods").select("data")),
+      check(sb.from("vl_custom_exercises").select("data")),
     ]);
     return {
       workouts: (w.data ?? []).map(toWorkout),
@@ -74,7 +74,7 @@ export const supabaseRepo: Repo = {
 
   async saveWorkout(x) {
     await check(
-      getSupabase().from("workouts").upsert({
+      getSupabase().from("vl_workouts").upsert({
         id: x.id,
         date: x.date,
         exercise_id: x.exerciseId,
@@ -86,12 +86,12 @@ export const supabaseRepo: Repo = {
     );
   },
   async deleteWorkout(id) {
-    await check(getSupabase().from("workouts").delete().eq("id", id));
+    await check(getSupabase().from("vl_workouts").delete().eq("id", id));
   },
 
   async saveMeal(x) {
     await check(
-      getSupabase().from("meals").upsert({
+      getSupabase().from("vl_meals").upsert({
         id: x.id,
         date: x.date,
         meal: x.meal,
@@ -102,12 +102,12 @@ export const supabaseRepo: Repo = {
     );
   },
   async deleteMeal(id) {
-    await check(getSupabase().from("meals").delete().eq("id", id));
+    await check(getSupabase().from("vl_meals").delete().eq("id", id));
   },
 
   async saveInbody(x) {
     await check(
-      getSupabase().from("inbody").upsert({
+      getSupabase().from("vl_inbody").upsert({
         id: x.id,
         date: x.date,
         weight: x.weight,
@@ -120,25 +120,25 @@ export const supabaseRepo: Repo = {
     );
   },
   async deleteInbody(id) {
-    await check(getSupabase().from("inbody").delete().eq("id", id));
+    await check(getSupabase().from("vl_inbody").delete().eq("id", id));
   },
 
   async saveGoals(goals) {
     const sb = getSupabase();
     const { data } = await sb.auth.getUser();
-    await check(sb.from("goals").upsert({ user_id: data.user!.id, goals, updated_at: new Date().toISOString() }));
+    await check(sb.from("vl_goals").upsert({ user_id: data.user!.id, goals, updated_at: new Date().toISOString() }));
   },
 
   async saveCustomFood(f) {
-    await check(getSupabase().from("custom_foods").upsert({ id: f.id, data: f }));
+    await check(getSupabase().from("vl_custom_foods").upsert({ id: f.id, data: f }));
   },
   async saveCustomExercise(e) {
-    await check(getSupabase().from("custom_exercises").upsert({ id: e.id, data: e }));
+    await check(getSupabase().from("vl_custom_exercises").upsert({ id: e.id, data: e }));
   },
 
   async createShare(p) {
     const id = shortId();
-    await check(getSupabase().from("shares").insert({ id, kind: p.kind, payload: p }));
+    await check(getSupabase().from("vl_shares").insert({ id, kind: p.kind, payload: p }));
     return id;
   },
 };

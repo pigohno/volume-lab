@@ -32,12 +32,13 @@ npm run dev
 
 ## Supabase 설정
 
-1. supabase.com에서 새 프로젝트 생성 (리전: Northeast Asia (Seoul))
+1. 기존 Supabase 프로젝트를 다른 앱과 함께 씁니다. 테이블은 전부 `vl_` 접두사라 기존 테이블과 겹치지 않아요.
+   (로그인 계정(auth.users)은 두 앱이 공유합니다.)
 2. SQL Editor에 `supabase/schema.sql` 전체를 붙여넣고 Run
 3. Project Settings → API에서 `Project URL`, `anon public` 키를 환경변수에 입력
 4. Authentication → URL Configuration
-   - Site URL: 배포 주소 (예: `https://volume-lab.vercel.app`)
-   - Redirect URLs: 배포 주소와 `http://localhost:3000`
+   - Site URL은 기존 앱 것을 그대로 두세요 (바꾸면 기존 앱 로그인 메일이 이쪽으로 옵니다)
+   - Redirect URLs에 `https://<volume-lab 배포주소>/**`와 `http://localhost:3000/**`를 **추가**
 5. (선택) Authentication → Email Templates → Magic Link 본문에 `{{ .Token }}`을 추가하면
    메일에 6자리 코드도 같이 와서, 링크 대신 코드로 로그인할 수 있습니다. (앱 전환 시 편해요)
 
