@@ -15,7 +15,7 @@ import { FoodPicker, MEAL_LABEL } from "@/components/food-picker";
 import { ShareButton } from "@/components/share-button";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 
 const SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner", "snack"];
 
@@ -215,7 +215,7 @@ function EditMealDialog({ entry, onClose }: { entry: MealEntry | null; onClose: 
             단백질 <span className="text-foreground">{round1(f.protein * servings)}g</span> · 탄수 {round1(f.carbs * servings)}g · 지방{" "}
             {round1(f.fat * servings)}g · {fmt(f.kcal * servings)}kcal
           </div>
-          <div className="flex gap-2">
+          <DialogFooter>
             <Button
               variant="destructive"
               onClick={() => {
@@ -234,7 +234,7 @@ function EditMealDialog({ entry, onClose }: { entry: MealEntry | null; onClose: 
             >
               저장
             </Button>
-          </div>
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>

@@ -45,10 +45,29 @@ function itemsOf(json: unknown): Raw[] {
 
 export const mfdsEnabled = () => Boolean(process.env.MFDS_API_KEY);
 
-export async function searchMfds(q: string, rows = 30): Promise<FoodProduct[]> {
+/**
+ * "아임닭 소스"처럼 브랜드+상품명으로 찾는 경우가 많아서,
+ * 상품명 검색에 더해 첫 단어를 제조사로 보는 검색을 같이 돌려 합칩니다.
+ * (결과는 브라우저에서 검색어로 한 번 더 걸러서 정렬합니다.)
+ */
+export async function searchMfds(q: string): Promise<FoodProduct[]> {
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const queries: Record<string, string>[] = [{ FOOD_NM_KR: q.trim() }];
+  if (tokens.length > 1) queries.push({ MAKER_NM: tokens[0], FOOD_NM_KR: tokens.slice(1).join(" ") });
+  else queries.push({ MAKER_NM: tokens[0] });
+
+  const settled = await Promise.allSettled(queries.map((p) => fetchMfds(p, 40)));
+  const ok = settled.filter((r): r is PromiseFulfilledResult<FoodProduct[]> => r.status === "fulfilled");
+  if (ok.length === 0) throw (settled[0] as PromiseRejectedResult).reason;
+  const seen = new Set<string>();
+  return ok.flatMap((r) => r.value).filter((f) => (seen.has(f.id) ? false : (seen.add(f.id), true)));
+}
+
+async function fetchMfds(params: Record<string, string>, rows: number): Promise<FoodProduct[]> {
+  const q = params.FOOD_NM_KR ?? params.MAKER_NM ?? "";
   const url = new URL(ENDPOINT);
   url.searchParams.set("serviceKey", process.env.MFDS_API_KEY ?? "");
-  url.searchParams.set("FOOD_NM_KR", q);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   url.searchParams.set("pageNo", "1");
   url.searchParams.set("numOfRows", String(rows));
   url.searchParams.set("type", "json");

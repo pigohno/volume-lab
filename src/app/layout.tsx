@@ -13,6 +13,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // 안드로이드 크롬: 키보드가 올라오면 화면 높이를 줄여서 하단 버튼이 가려지지 않게
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

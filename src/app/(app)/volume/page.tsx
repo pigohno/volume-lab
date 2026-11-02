@@ -76,6 +76,14 @@ export default function VolumePage() {
           <Stat label="종목" value={cur.exerciseCount} unit="개" sub={`${cur.days.filter((d) => d.sets > 0).length}일 운동`} />
         </Card>
 
+        {(cur.cardioMinutes > 0 || prev.cardioMinutes > 0) && (
+          <Card className="grid grid-cols-3 gap-3 p-4">
+            <Stat label="유산소" value={cur.cardioMinutes} unit="분" sub={`지난주 ${prev.cardioMinutes}분`} />
+            <Stat label="소모 칼로리" value={fmt(cur.cardioKcal)} unit="kcal" sub="MET 기준 추정" />
+            <Stat label="유산소 한 날" value={cur.cardioDays} unit="일" />
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>요일별 볼륨</CardTitle>

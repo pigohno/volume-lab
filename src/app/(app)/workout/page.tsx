@@ -5,7 +5,7 @@ import { Copy, Dumbbell, History, Plus, Search, Trash2, X, Zap } from "lucide-re
 import type { Exercise, MuscleId, SetRecord, WorkoutEntry } from "@/lib/types";
 import { useStore } from "@/lib/store/provider";
 import { MUSCLE_LABEL } from "@/lib/muscles";
-import { bestSet, e1rm, entryVolume, overloadHint } from "@/lib/calc";
+import { bestSet, cardioKcal, cardioKm, cardioMinutes, e1rm, entryVolume, isCardio, overloadHint } from "@/lib/calc";
 import { labelDay, today } from "@/lib/dates";
 import { cn, fmt, round1, uid } from "@/lib/utils";
 import { PageHeader } from "@/components/app-shell";
@@ -63,7 +63,11 @@ function LogTab() {
   const addExercise = (ex: Exercise) => {
     const last = lastOf(ex.id, date);
     // 지난 기록의 세트를 그대로 복사해 두면, 숫자만 살짝 고치면 끝나요
-    const sets: SetRecord[] = last ? last.sets.map((s) => ({ ...s })) : [{ weight: 0, reps: 10 }];
+    const sets: SetRecord[] = last
+      ? last.sets.map((s) => ({ ...s }))
+      : isCardio(ex)
+        ? [{ weight: 0, reps: 0, minutes: 30 }]
+        : [{ weight: 0, reps: 10 }];
     saveWorkout({ id: uid(), date, exerciseId: ex.id, sets, stimulated: [], createdAt: new Date().toISOString() });
   };
 
@@ -89,7 +93,11 @@ function LogTab() {
   };
 
   const dayVolume = entries.reduce((s, w) => s + entryVolume(w, getExercise(w.exerciseId), goals.bodyWeight), 0);
-  const daySets = entries.reduce((s, w) => s + w.sets.length, 0);
+  const strength = entries.filter((w) => !isCardio(getExercise(w.exerciseId)));
+  const cardio = entries.filter((w) => isCardio(getExercise(w.exerciseId)));
+  const daySets = strength.reduce((s, w) => s + w.sets.length, 0);
+  const dayCardioMin = cardio.reduce((s, w) => s + cardioMinutes(w), 0);
+  const dayCardioKcal = cardio.reduce((s, w) => s + cardioKcal(w, getExercise(w.exerciseId), goals.bodyWeight), 0);
 
   return (
     <div className="space-y-3">
@@ -104,7 +112,11 @@ function LogTab() {
         <Card className="grid grid-cols-3 gap-3 p-4">
           <Stat label="총 볼륨" value={fmt(dayVolume)} unit="kg" />
           <Stat label="세트" value={daySets} unit="세트" />
-          <Stat label="운동" value={entries.length} unit="종목" />
+          {cardio.length > 0 ? (
+            <Stat label="유산소" value={dayCardioMin} unit="분" sub={`약 ${fmt(dayCardioKcal)}kcal 소모`} />
+          ) : (
+            <Stat label="운동" value={entries.length} unit="종목" />
+          )}
         </Card>
       )}
 
@@ -171,8 +183,19 @@ function EntryCard({ entry, last }: { entry: WorkoutEntry; last?: WorkoutEntry }
   const volume = entryVolume(draft, ex, goals.bodyWeight);
   const lastVolume = last ? entryVolume(last, ex, goals.bodyWeight) : 0;
   const diff = lastVolume ? ((volume - lastVolume) / lastVolume) * 100 : null;
-  const hint = overloadHint(last);
+  const hint = overloadHint(last, ex);
   const isBw = ex?.equipment === "bodyweight";
+  const cardio = isCardio(ex);
+  // 근력: 무게×횟수, 유산소: 시간(분)×거리(km)
+  const cols: { k: keyof SetRecord; label: string; step: string; mode: "decimal" | "numeric" }[] = cardio
+    ? [
+        { k: "minutes", label: "시간 (분)", step: "1", mode: "numeric" },
+        { k: "km", label: "거리 (km, 선택)", step: "0.1", mode: "decimal" },
+      ]
+    : [
+        { k: "weight", label: isBw ? "추가 중량 (kg)" : "무게 (kg)", step: "0.5", mode: "decimal" },
+        { k: "reps", label: "횟수", step: "1", mode: "numeric" },
+      ];
   const muscles = ex ? [...ex.primary, ...ex.secondary] : [];
 
   return (
@@ -181,8 +204,15 @@ function EntryCard({ entry, last }: { entry: WorkoutEntry; last?: WorkoutEntry }
         <div className="min-w-0 flex-1">
           <div className="truncate text-[15px] font-semibold tracking-tight">{ex?.name ?? "알 수 없는 운동"}</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
-            <span className="num">{fmt(volume)} kg</span>
-            {diff !== null && (
+            {cardio ? (
+              <span className="num">
+                {cardioMinutes(draft)}분{cardioKm(draft) > 0 && ` · ${round1(cardioKm(draft))}km`} · 약{" "}
+                {fmt(cardioKcal(draft, ex, goals.bodyWeight))}kcal
+              </span>
+            ) : (
+              <span className="num">{fmt(volume)} kg</span>
+            )}
+            {!cardio && diff !== null && (
               <span className={cn("num", diff > 0 ? "text-success" : diff < 0 ? "text-destructive" : "")}>
                 지난번 대비 {diff > 0 ? "+" : ""}
                 {round1(diff)}%
@@ -210,9 +240,9 @@ function EntryCard({ entry, last }: { entry: WorkoutEntry; last?: WorkoutEntry }
 
       <div className="px-4 pt-3">
         <div className="grid grid-cols-[2rem_1fr_1fr_2rem] items-center gap-2 pb-1.5 text-[11px] text-muted-foreground">
-          <span>세트</span>
-          <span>{isBw ? "추가 중량 (kg)" : "무게 (kg)"}</span>
-          <span>횟수</span>
+          <span>{cardio ? "구간" : "세트"}</span>
+          <span>{cols[0].label}</span>
+          <span>{cols[1].label}</span>
           <span />
         </div>
         {draft.sets.map((s, i) => {
@@ -220,23 +250,18 @@ function EntryCard({ entry, last }: { entry: WorkoutEntry; last?: WorkoutEntry }
           return (
             <div key={i} className="grid grid-cols-[2rem_1fr_1fr_2rem] items-center gap-2 py-1">
               <span className="num text-center text-xs text-muted-foreground">{i + 1}</span>
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="0.5"
-                value={s.weight || ""}
-                placeholder={prev ? String(prev.weight) : "0"}
-                onChange={(e) => setField(i, "weight", e.target.value)}
-                className="num h-9 text-center"
-              />
-              <Input
-                type="number"
-                inputMode="numeric"
-                value={s.reps || ""}
-                placeholder={prev ? String(prev.reps) : "0"}
-                onChange={(e) => setField(i, "reps", e.target.value)}
-                className="num h-9 text-center"
-              />
+              {cols.map((c) => (
+                <Input
+                  key={c.k}
+                  type="number"
+                  inputMode={c.mode}
+                  step={c.step}
+                  value={s[c.k] || ""}
+                  placeholder={prev?.[c.k] ? String(prev[c.k]) : "0"}
+                  onChange={(e) => setField(i, c.k, e.target.value)}
+                  className="num h-9 text-center"
+                />
+              ))}
               <Button variant="ghost" size="icon-sm" aria-label="세트 삭제" onClick={() => removeSet(i)}>
                 <X />
               </Button>
@@ -244,7 +269,7 @@ function EntryCard({ entry, last }: { entry: WorkoutEntry; last?: WorkoutEntry }
           );
         })}
         <Button variant="ghost" size="sm" className="mt-1 w-full border border-dashed border-border" onClick={addSet}>
-          <Plus /> 세트 추가
+          <Plus /> {cardio ? "구간 추가" : "세트 추가"}
         </Button>
       </div>
 
@@ -335,10 +360,14 @@ function FindTab() {
           </div>
           <Card className="grid grid-cols-3 gap-3 p-4">
             <Stat label="수행 횟수" value={history.length} unit="회" />
-            <Stat label="추정 1RM 최고" value={round1(best)} unit="kg" />
+            {isCardio(ex) ? (
+              <Stat label="최장 시간" value={Math.max(0, ...history.map(cardioMinutes))} unit="분" />
+            ) : (
+              <Stat label="추정 1RM 최고" value={round1(best)} unit="kg" />
+            )}
             <Stat label="처음 기록" value={history.at(-1) ? labelDay(history.at(-1)!.date).split(" (")[0] : "-"} />
           </Card>
-          <E1rmSpark history={[...history].reverse()} />
+          {!isCardio(ex) && <E1rmSpark history={[...history].reverse()} />}
           <Card className="divide-y divide-border">
             {history.map((w) => {
               const top = bestSet(w.sets);
@@ -347,12 +376,16 @@ function FindTab() {
                   <div className="flex items-center justify-between text-[13px]">
                     <span className="font-medium">{labelDay(w.date)}</span>
                     <span className="num text-muted-foreground">
-                      {fmt(entryVolume(w, ex, goals.bodyWeight))} kg
+                      {isCardio(ex)
+                      ? `${cardioMinutes(w)}분 · 약 ${fmt(cardioKcal(w, ex, goals.bodyWeight))}kcal`
+                      : `${fmt(entryVolume(w, ex, goals.bodyWeight))} kg`}
                     </span>
                   </div>
                   <div className="num mt-1 text-[12px] text-muted-foreground">
-                    {w.sets.map((s) => `${s.weight}×${s.reps}`).join("  ·  ")}
-                    {top && <span className="ml-2 text-foreground/70">(1RM≈{round1(e1rm(top))})</span>}
+                    {isCardio(ex)
+                      ? w.sets.map((s) => `${s.minutes ?? 0}분${s.km ? ` ${s.km}km` : ""}`).join("  ·  ")
+                      : w.sets.map((s) => `${s.weight}×${s.reps}`).join("  ·  ")}
+                    {top && !isCardio(ex) && <span className="ml-2 text-foreground/70">(1RM≈{round1(e1rm(top))})</span>}
                   </div>
                 </div>
               );

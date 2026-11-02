@@ -13,7 +13,7 @@ import { ShareButton } from "@/components/share-button";
 import { Empty, Stat } from "@/components/stat";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -505,7 +505,7 @@ function InbodyDialog({
             <Input value={form.note} onChange={set("note")} placeholder="예: 아침 공복, 운동 전" />
           </Field>
 
-          <div className="flex gap-2 pt-1">
+          <DialogFooter>
             {record && (
               <Button type="button" variant="destructive" onClick={remove}>
                 <Trash2 /> 삭제
@@ -514,7 +514,7 @@ function InbodyDialog({
             <Button type="submit" className="flex-1" disabled={!canSave}>
               {record ? "수정 완료" : "저장"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

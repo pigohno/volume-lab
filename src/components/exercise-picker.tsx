@@ -7,7 +7,7 @@ import { MUSCLES, MUSCLE_LABEL } from "@/lib/muscles";
 import { multiTokenScore } from "@/lib/search";
 import { useStore } from "@/lib/store/provider";
 import { cn, uid } from "@/lib/utils";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,9 +21,10 @@ export const EQUIPMENT_LABEL: Record<Equipment, string> = {
   smith: "스미스",
   kettlebell: "케틀벨",
   band: "밴드",
+  cardio: "유산소",
 };
 
-const GROUPS = ["전체", "가슴", "등", "어깨", "팔", "코어", "하체"] as const;
+const GROUPS = ["전체", "가슴", "등", "어깨", "팔", "코어", "하체", "유산소"] as const;
 
 function groupOf(m: MuscleId) {
   const g = MUSCLES.find((x) => x.id === m)?.group ?? "";
@@ -41,7 +42,12 @@ export function useExerciseSearch(query: string, group: (typeof GROUPS)[number] 
   }, [workouts]);
 
   return React.useMemo(() => {
-    const pool = group === "전체" ? allExercises : allExercises.filter((e) => e.primary.some((m) => groupOf(m) === group));
+    const pool =
+      group === "전체"
+        ? allExercises
+        : group === "유산소"
+          ? allExercises.filter((e) => e.met !== undefined)
+          : allExercises.filter((e) => e.primary.some((m) => groupOf(m) === group));
     const q = query.trim();
     if (!q) {
       return [...pool].sort((a, b) => (freq.get(b.id) ?? 0) - (freq.get(a.id) ?? 0)).slice(0, 60);
@@ -171,6 +177,7 @@ export function ExercisePicker({
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{e.name}</div>
                       <div className="truncate text-[11px] text-muted-foreground">
+                        {e.met !== undefined && "시간·거리로 기록 · 소모 칼로리 추정"}
                         {e.primary.map((m) => MUSCLE_LABEL[m]).join(" · ")}
                         {e.secondary.length > 0 && (
                           <span className="opacity-60"> + {e.secondary.map((m) => MUSCLE_LABEL[m]).join(", ")}</span>
@@ -237,13 +244,13 @@ function CustomExerciseForm({
           ))}
         </div>
       </div>
-      <div className="flex gap-2 pt-2">
+      <DialogFooter>
         <Button variant="ghost" className="flex-1" onClick={onCancel}>
           취소
         </Button>
         <Button
           className="flex-1"
-          disabled={!name.trim() || primary.length === 0}
+          disabled={!name.trim() || (equipment !== "cardio" && primary.length === 0)}
           onClick={() =>
             onSave({
               id: `custom-${uid()}`,
@@ -254,12 +261,13 @@ function CustomExerciseForm({
               primary,
               secondary: [],
               custom: true,
+              ...(equipment === "cardio" ? { met: 6 } : {}),
             })
           }
         >
           추가
         </Button>
-      </div>
+      </DialogFooter>
     </div>
   );
 }

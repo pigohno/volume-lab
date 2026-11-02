@@ -27,7 +27,8 @@ export type Equipment =
   | "bodyweight"
   | "smith"
   | "kettlebell"
-  | "band";
+  | "band"
+  | "cardio";
 
 export interface Exercise {
   id: string;
@@ -38,11 +39,15 @@ export interface Exercise {
   primary: MuscleId[];
   secondary: MuscleId[];
   custom?: boolean;
+  /** 유산소 종목의 MET(운동 강도) — 있으면 유산소로 취급해 시간·거리로 기록합니다. */
+  met?: number;
 }
 
 export interface SetRecord {
   weight: number; // kg (맨몸은 0)
   reps: number;
+  minutes?: number; // 유산소: 시간(분)
+  km?: number; // 유산소: 거리(km)
 }
 
 export interface WorkoutEntry {

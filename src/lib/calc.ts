@@ -10,7 +10,19 @@ export function effectiveWeight(ex: Exercise | undefined, set: SetRecord, bodyWe
   return ex?.equipment === "bodyweight" ? bodyWeight + set.weight : set.weight;
 }
 
+export const isCardio = (ex: Exercise | undefined) => ex?.met !== undefined;
+
+export const cardioMinutes = (entry: WorkoutEntry) => entry.sets.reduce((s, x) => s + (x.minutes ?? 0), 0);
+export const cardioKm = (entry: WorkoutEntry) => entry.sets.reduce((s, x) => s + (x.km ?? 0), 0);
+
+/** 유산소 소모 칼로리 추정 = MET × 체중 × 시간 */
+export function cardioKcal(entry: WorkoutEntry, ex: Exercise | undefined, bodyWeight: number) {
+  if (!ex?.met) return 0;
+  return Math.round((ex.met * bodyWeight * cardioMinutes(entry)) / 60);
+}
+
 export function entryVolume(entry: WorkoutEntry, ex: Exercise | undefined, bodyWeight: number) {
+  if (isCardio(ex)) return 0; // 유산소는 kg 볼륨에서 제외
   return entry.sets.reduce((s, set) => s + effectiveWeight(ex, set, bodyWeight) * set.reps, 0);
 }
 
@@ -32,6 +44,9 @@ export interface WeekSummary {
   muscleVolume: Record<MuscleId, number>;
   stimulated: Partial<Record<MuscleId, number>>; // 직접 체크한 횟수
   exerciseCount: number;
+  cardioMinutes: number;
+  cardioKcal: number;
+  cardioDays: number;
 }
 
 const emptyMuscleRecord = () =>
@@ -50,8 +65,17 @@ export function summarizeWeek(
   const stimulated: Partial<Record<MuscleId, number>> = {};
   const days = keys.map((date) => ({ date, volume: 0, sets: 0 }));
 
+  let cMin = 0;
+  let cKcal = 0;
+  const cDays = new Set<string>();
   for (const w of inWeek) {
     const ex = getEx(w.exerciseId);
+    if (isCardio(ex)) {
+      cMin += cardioMinutes(w);
+      cKcal += cardioKcal(w, ex, bodyWeight);
+      if (cardioMinutes(w) > 0) cDays.add(w.date);
+      continue;
+    }
     const vol = entryVolume(w, ex, bodyWeight);
     const d = days.find((x) => x.date === w.date)!;
     d.volume += vol;
@@ -77,7 +101,10 @@ export function summarizeWeek(
     muscleSets,
     muscleVolume,
     stimulated,
-    exerciseCount: new Set(inWeek.map((w) => w.exerciseId)).size,
+    exerciseCount: new Set(inWeek.filter((w) => !isCardio(getEx(w.exerciseId))).map((w) => w.exerciseId)).size,
+    cardioMinutes: cMin,
+    cardioKcal: cKcal,
+    cardioDays: cDays.size,
   };
 }
 
@@ -94,8 +121,14 @@ export function muscleIntensity(sum: WeekSummary, weeklySetTarget: number) {
 }
 
 /** 점진적 과부하 제안 — 지난 기록을 보고 오늘 목표를 한 줄로 제시 */
-export function overloadHint(last: WorkoutEntry | undefined): string | null {
+export function overloadHint(last: WorkoutEntry | undefined, ex?: Exercise): string | null {
   if (!last || last.sets.length === 0) return null;
+  if (isCardio(ex)) {
+    const m = cardioMinutes(last);
+    const km = round1(cardioKm(last));
+    if (!m) return null;
+    return km > 0 ? `지난번 ${m}분 · ${km}km → 오늘은 같은 시간에 ${round1(km + 0.2)}km 도전` : `지난번 ${m}분 → 오늘은 ${m + 5}분 도전`;
+  }
   const top = bestSet(last.sets)!;
   const allHigh = last.sets.every((s) => s.reps >= 12);
   if (top.weight === 0) return `지난번 최고 ${top.reps}회 → 오늘은 ${top.reps + 1}회 도전`;

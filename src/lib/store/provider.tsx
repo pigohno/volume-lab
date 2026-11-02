@@ -6,6 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import type { Exercise, FoodProduct, Goals, InbodyRecord, MealEntry, SharePayload, WorkoutEntry } from "@/lib/types";
 import { DEFAULT_GOALS } from "@/lib/types";
 import { EXERCISES } from "@/lib/data/exercises";
+import { CARDIO } from "@/lib/data/cardio";
 import { getSupabase, supabaseEnabled } from "@/lib/supabase";
 import { localRepo } from "./local-repo";
 import { supabaseRepo } from "./supabase-repo";
@@ -107,7 +108,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const allExercises = React.useMemo(() => [...EXERCISES, ...snap.customExercises], [snap.customExercises]);
+  const allExercises = React.useMemo(() => [...EXERCISES, ...CARDIO, ...snap.customExercises], [snap.customExercises]);
   const exMap = React.useMemo(() => new Map(allExercises.map((e) => [e.id, e])), [allExercises]);
 
   const value: Store = {

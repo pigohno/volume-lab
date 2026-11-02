@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Dumbbell, Salad, Scale } from "lucide-react";
 import { useStore } from "@/lib/store/provider";
-import { currentWeight, entryVolume, judge, macroTargets, mealTotals } from "@/lib/calc";
+import { cardioMinutes, currentWeight, entryVolume, isCardio, judge, macroTargets, mealTotals } from "@/lib/calc";
 import { labelDay, labelMD, today, weekStart } from "@/lib/dates";
 import { fmt, round1 } from "@/lib/utils";
 import { BodyMap } from "@/components/body-map";
@@ -85,7 +85,16 @@ export default function HomePage() {
             <>
               <div className="grid grid-cols-3 gap-3">
                 <Stat label="볼륨" value={fmt(todayVolume)} unit="kg" />
-                <Stat label="세트" value={todayW.reduce((s, w) => s + w.sets.length, 0)} unit="세트" />
+                <Stat
+                  label="세트"
+                  value={todayW.filter((w) => !isCardio(getExercise(w.exerciseId))).reduce((s, w) => s + w.sets.length, 0)}
+                  unit="세트"
+                  sub={
+                    todayW.some((w) => isCardio(getExercise(w.exerciseId)))
+                      ? `유산소 ${todayW.reduce((s, w) => s + (isCardio(getExercise(w.exerciseId)) ? cardioMinutes(w) : 0), 0)}분`
+                      : undefined
+                  }
+                />
                 <Stat label="종목" value={todayW.length} unit="개" />
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">

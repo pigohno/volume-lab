@@ -7,7 +7,7 @@ import { SEED_FOODS } from "@/lib/data/foods";
 import { multiTokenScore } from "@/lib/search";
 import { useStore } from "@/lib/store/provider";
 import { cn, fmt, round1, uid } from "@/lib/utils";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -365,9 +365,11 @@ function AmountStep({
         ))}
       </div>
 
-      <Button size="lg" className="w-full" disabled={servings <= 0} onClick={() => onSave(meal, round1(servings * 100) / 100)}>
-        {MEAL_LABEL[meal]}에 추가
-      </Button>
+      <DialogFooter>
+        <Button size="lg" className="w-full" disabled={servings <= 0} onClick={() => onSave(meal, round1(servings * 100) / 100)}>
+          {MEAL_LABEL[meal]}에 추가
+        </Button>
+      </DialogFooter>
     </div>
   );
 }
@@ -435,7 +437,7 @@ function CustomFoodForm({
           />
         </Field>
       </div>
-      <div className="flex gap-2 pt-2">
+      <DialogFooter>
         <Button variant="ghost" className="flex-1" onClick={onCancel}>
           취소
         </Button>
@@ -463,7 +465,7 @@ function CustomFoodForm({
         >
           저장하고 추가
         </Button>
-      </div>
+      </DialogFooter>
     </div>
   );
 }
