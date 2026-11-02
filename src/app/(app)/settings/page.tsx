@@ -31,13 +31,21 @@ const toForm = (g: Goals): GoalForm => ({
   carbsPerKg: String(g.carbsPerKg),
   fatPerKg: String(g.fatPerKg),
   weeklySetTarget: String(g.weeklySetTarget),
+  carbsFixed: g.carbsFixed == null ? "" : String(g.carbsFixed),
+  fatFixed: g.fatFixed == null ? "" : String(g.fatFixed),
+  kcalFixed: g.kcalFixed == null ? "" : String(g.kcalFixed),
 });
 
 /** 비었거나 이상한 값은 기존 값으로 되돌립니다. */
 function fromForm(f: GoalForm, fallback: Goals): Goals {
-  const pick = (k: keyof Goals) => {
+  const pick = (k: "bodyWeight" | "proteinPerKg" | "carbsPerKg" | "fatPerKg" | "weeklySetTarget") => {
     const n = Number(f[k]);
     return f[k].trim() !== "" && Number.isFinite(n) && n >= 0 ? n : fallback[k];
+  };
+  // 고정값은 비우면 null(체중 기준 계산)
+  const fixed = (k: "carbsFixed" | "fatFixed" | "kcalFixed") => {
+    const n = Number(f[k]);
+    return f[k].trim() !== "" && Number.isFinite(n) && n > 0 ? n : null;
   };
   return {
     bodyWeight: pick("bodyWeight"),
@@ -45,6 +53,9 @@ function fromForm(f: GoalForm, fallback: Goals): Goals {
     carbsPerKg: pick("carbsPerKg"),
     fatPerKg: pick("fatPerKg"),
     weeklySetTarget: Math.round(pick("weeklySetTarget")),
+    carbsFixed: fixed("carbsFixed"),
+    fatFixed: fixed("fatFixed"),
+    kcalFixed: fixed("kcalFixed"),
   };
 }
 
@@ -86,11 +97,23 @@ function GoalsCard() {
       proteinPerKg: String(p.proteinPerKg),
       carbsPerKg: String(p.carbsPerKg),
       fatPerKg: String(p.fatPerKg),
+      carbsFixed: "",
+      fatFixed: "",
+      kcalFixed: "",
     }));
 
   const activePreset = PRESETS.find(
-    (p) => p.proteinPerKg === draft.proteinPerKg && p.carbsPerKg === draft.carbsPerKg && p.fatPerKg === draft.fatPerKg,
+    (p) =>
+      draft.carbsFixed == null &&
+      draft.fatFixed == null &&
+      draft.kcalFixed == null &&
+      p.proteinPerKg === draft.proteinPerKg &&
+      p.carbsPerKg === draft.carbsPerKg &&
+      p.fatPerKg === draft.fatPerKg,
   );
+  // 고정 칼로리가 매크로 합과 크게 다르면 알려 드립니다.
+  const macroKcal = Math.round(t.protein * 4 + t.carbs * 4 + t.fat * 9);
+  const kcalGap = draft.kcalFixed ? macroKcal - draft.kcalFixed : 0;
 
   const save = () => {
     saveGoals(draft);
@@ -100,7 +123,9 @@ function GoalsCard() {
   return (
     <Card className="p-4">
       <div className="text-[15px] font-semibold tracking-tight">영양 목표</div>
-      <p className="mt-0.5 text-[12px] text-muted-foreground">체중 1kg당 얼마나 먹을지 정하면 하루 목표가 계산돼요.</p>
+      <p className="mt-0.5 text-[12px] text-muted-foreground">
+        단백질은 체중 1kg당 g으로 계산하고, 탄수·지방·칼로리는 고정값을 넣으면 그 값을 그대로 써요. 비워 두면 체중 기준으로 계산해요.
+      </p>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {PRESETS.map((p) => (
@@ -112,8 +137,17 @@ function GoalsCard() {
 
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <NumField label="단백질 (g/kg)" value={form.proteinPerKg} onChange={set("proteinPerKg")} step="0.1" />
-        <NumField label="탄수화물 (g/kg)" value={form.carbsPerKg} onChange={set("carbsPerKg")} step="0.1" />
-        <NumField label="지방 (g/kg)" value={form.fatPerKg} onChange={set("fatPerKg")} step="0.1" />
+        <NumField label="탄수화물 고정 (g)" value={form.carbsFixed} onChange={set("carbsFixed")} step="1" placeholder="비우면 g/kg" />
+        <NumField label="지방 고정 (g)" value={form.fatFixed} onChange={set("fatFixed")} step="1" placeholder="비우면 g/kg" />
+        <NumField label="칼로리 고정 (kcal)" value={form.kcalFixed} onChange={set("kcalFixed")} step="10" placeholder="비우면 자동" />
+        <NumField
+          label="탄수화물 (g/kg)"
+          value={form.carbsPerKg}
+          onChange={set("carbsPerKg")}
+          step="0.1"
+          disabled={draft.carbsFixed != null}
+        />
+        <NumField label="지방 (g/kg)" value={form.fatPerKg} onChange={set("fatPerKg")} step="0.1" disabled={draft.fatFixed != null} />
         <NumField
           label="기준 체중 (kg)"
           value={form.bodyWeight}
@@ -137,8 +171,14 @@ function GoalsCard() {
         </div>
         <div className="num mt-1 font-medium">
           단백질 {fmt(t.protein)}g · 탄수 {fmt(t.carbs)}g · 지방 {fmt(t.fat)}g
-          <span className="text-muted-foreground"> · 약 {fmt(t.kcal)}kcal</span>
+          <span className="text-muted-foreground"> · {draft.kcalFixed ? "" : "약 "}{fmt(t.kcal)}kcal</span>
         </div>
+        {Math.abs(kcalGap) > t.kcal * 0.1 && (
+          <div className="mt-1.5 text-[11px] text-warning">
+            참고: 단백질·탄수·지방을 다 채우면 약 {fmt(macroKcal)}kcal라서, 칼로리 목표보다 {fmt(Math.abs(kcalGap))}kcal{" "}
+            {kcalGap > 0 ? "많아요" : "적어요"}.
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex justify-end">

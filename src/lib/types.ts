@@ -98,6 +98,10 @@ export interface Goals {
   carbsPerKg: number;
   fatPerKg: number;
   weeklySetTarget: number; // 부위별 주간 목표 세트 수
+  // 고정 목표 — 값이 있으면 g/kg 계산 대신 이 값을 그대로 씁니다. (null = 체중 기준 계산)
+  carbsFixed: number | null;
+  fatFixed: number | null;
+  kcalFixed: number | null;
 }
 
 export const DEFAULT_GOALS: Goals = {
@@ -106,6 +110,9 @@ export const DEFAULT_GOALS: Goals = {
   carbsPerKg: 3.5,
   fatPerKg: 0.8,
   weeklySetTarget: 12,
+  carbsFixed: 200,
+  fatFixed: 60,
+  kcalFixed: 1560,
 };
 
 export type ShareKind = "volume" | "diet" | "inbody";

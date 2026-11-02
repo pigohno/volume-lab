@@ -131,9 +131,10 @@ export function currentWeight(goals: Goals, inbody: InbodyRecord[]) {
 
 export function macroTargets(goals: Goals, weight: number): MacroTotals {
   const protein = round1(weight * goals.proteinPerKg);
-  const carbs = round1(weight * goals.carbsPerKg);
-  const fat = round1(weight * goals.fatPerKg);
-  return { protein, carbs, fat, kcal: Math.round(protein * 4 + carbs * 4 + fat * 9) };
+  const carbs = goals.carbsFixed ?? round1(weight * goals.carbsPerKg);
+  const fat = goals.fatFixed ?? round1(weight * goals.fatPerKg);
+  const kcal = goals.kcalFixed ?? Math.round(protein * 4 + carbs * 4 + fat * 9);
+  return { protein, carbs, fat, kcal };
 }
 
 export type Verdict = "under" | "ok" | "over";
