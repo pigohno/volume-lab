@@ -19,7 +19,7 @@ const NAV = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { mode, session, authChecked, ready } = useStore();
+  const { mode, session, authChecked, ready, denied, loadError, reload, signOut } = useStore();
   // 기록은 전부 브라우저(또는 로그인 후 Supabase)에서 오기 때문에, 화면 본문은 클라이언트에서만 그립니다.
   // 헤더·탭은 서버에서 미리 그려져서 첫 화면이 바로 뜹니다.
   const mounted = React.useSyncExternalStore(
@@ -29,6 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   if (mode === "supabase" && authChecked && !session) return <LoginScreen />;
+  if (denied) return <DeniedScreen email={session?.user.email} onSignOut={signOut} />;
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
@@ -73,7 +74,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 px-4 pb-28 pt-5 sm:pb-12">{mounted && (ready || mode === "local") ? children : <Skeleton />}</main>
+      <main className="flex-1 px-4 pb-28 pt-5 sm:pb-12">{!mounted || !(ready || mode === "local") ? (
+          <Skeleton />
+        ) : loadError ? (
+          <LoadError message={loadError} onRetry={reload} />
+        ) : (
+          children
+        )}</main>
 
       {/* 모바일 하단 탭 — Capacitor 앱으로 감쌌을 때도 그대로 씁니다 */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/85 backdrop-blur-xl sm:hidden">
@@ -143,6 +150,47 @@ function Skeleton() {
       <div className="h-7 w-40 rounded-md bg-muted" />
       <div className="h-24 rounded-xl bg-card" />
       <div className="h-40 rounded-xl bg-card" />
+    </div>
+  );
+}
+
+function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <div className="mx-auto mt-10 max-w-sm rounded-xl border border-border bg-card p-6 text-center">
+      <div className="text-sm font-medium">기록을 불러오지 못했어요</div>
+      <p className="mt-1 break-all text-[12px] text-muted-foreground">{message}</p>
+      <button
+        onClick={() => {
+          setBusy(true);
+          onRetry();
+          setTimeout(() => setBusy(false), 1500);
+        }}
+        disabled={busy}
+        className="mt-4 h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
+      >
+        {busy ? "불러오는 중…" : "다시 시도"}
+      </button>
+    </div>
+  );
+}
+
+function DeniedScreen({ email, onSignOut }: { email?: string; onSignOut: () => Promise<void> }) {
+  return (
+    <div className="flex min-h-dvh items-center justify-center px-6">
+      <div className="w-full max-w-sm text-center">
+        <Logo className="mx-auto size-10" />
+        <h1 className="mt-6 text-lg font-semibold tracking-tight">개인 전용 앱이에요</h1>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          {email ? `${email} 계정은 ` : "이 계정은 "}사용 권한이 없어요.
+        </p>
+        <button
+          onClick={() => onSignOut()}
+          className="mt-6 h-9 rounded-md border border-border px-4 text-sm text-muted-foreground hover:text-foreground"
+        >
+          로그아웃
+        </button>
+      </div>
     </div>
   );
 }

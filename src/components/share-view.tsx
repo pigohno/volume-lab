@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { toPng } from "html-to-image";
 import { Download, Loader2 } from "lucide-react";
 import type { SharePayload } from "@/lib/types";
@@ -55,9 +54,6 @@ export function ShareView({ params }: { params: Promise<{ id: string }> }) {
     return (
       <div className="mx-auto max-w-md p-10 text-center">
         <p className="text-sm">공유 링크를 찾을 수 없어요.</p>
-        <Link href="/" className="mt-3 inline-block text-[13px] text-[#a5acf0]">
-          Volume Lab으로 가기
-        </Link>
       </div>
     );
 
@@ -77,9 +73,6 @@ export function ShareView({ params }: { params: Promise<{ id: string }> }) {
       <div className="mt-4 flex gap-2">
         <Button variant="secondary" className="flex-1" onClick={saveImage} disabled={saving}>
           {saving ? <Loader2 className="animate-spin" /> : <Download />} 이미지로 저장
-        </Button>
-        <Button asChild className="flex-1">
-          <Link href="/">나도 기록하기</Link>
         </Button>
       </div>
     </div>

@@ -71,11 +71,14 @@ declare t text;
 begin
   foreach t in array array['vl_workouts','vl_meals','vl_inbody','vl_goals','vl_custom_foods','vl_custom_exercises','vl_shares'] loop
     execute format('alter table public.%I enable row level security', t);
-    execute format('drop policy if exists "own rows" on public.%I', t);
-    execute format(
-      'create policy "own rows" on public.%I for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid())',
-      t
-    );
+    -- 2-lock-owner.sql로 이미 잠갔다면 건드리지 않습니다.
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = t and policyname = 'owner only') then
+      execute format('drop policy if exists "own rows" on public.%I', t);
+      execute format(
+        'create policy "own rows" on public.%I for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid())',
+        t
+      );
+    end if;
   end loop;
 end $$;
 

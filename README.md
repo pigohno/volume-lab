@@ -42,6 +42,14 @@ npm run dev
 5. (선택) Authentication → Email Templates → Magic Link 본문에 `{{ .Token }}`을 추가하면
    메일에 6자리 코드도 같이 와서, 링크 대신 코드로 로그인할 수 있습니다. (앱 전환 시 편해요)
 
+## 개인 전용 잠금
+
+- 로그인 화면에서는 새 계정을 만들지 않습니다 (`shouldCreateUser: false`).
+- `supabase/1-check-users.sql`: Volume Lab을 쓰는 계정과 기록 수 확인 (읽기 전용)
+- `supabase/2-lock-owner.sql`: `vl_owner`에 등록된 계정만 기록을 읽고 쓸 수 있게 RLS 잠금
+  - 소유자가 아닌 계정으로 로그인하면 "개인 전용 앱이에요" 화면이 뜹니다.
+  - 공유 링크 열람(읽기 전용)은 계속 됩니다.
+
 ## 식약처 식품영양성분 DB 연결 (선택)
 
 1. data.go.kr에서 **식품의약품안전처_식품영양성분DB정보** 활용 신청

@@ -44,6 +44,7 @@ function mutate(fn: (s: Snapshot) => Snapshot) {
 export const localRepo: Repo = {
   mode: "local",
   loadAll: () => Promise.resolve(read()),
+  checkOwner: () => Promise.resolve(true),
   saveWorkout: (w) => mutate((s) => ({ ...s, workouts: upsert(s.workouts, w) })),
   deleteWorkout: (id) => mutate((s) => ({ ...s, workouts: s.workouts.filter((x) => x.id !== id) })),
   saveMeal: (m) => mutate((s) => ({ ...s, meals: upsert(s.meals, m) })),

@@ -72,6 +72,16 @@ export const supabaseRepo: Repo = {
     };
   },
 
+  async checkOwner() {
+    // vl_owner 표에 내 계정이 있어야 소유자. (잠금 SQL을 아직 안 돌렸으면 표가 없으니 통과)
+    const { data, error } = await getSupabase().from("vl_owner").select("user_id").maybeSingle();
+    if (error) {
+      if (/vl_owner|does not exist|schema cache/i.test(error.message)) return true;
+      throw new Error(error.message);
+    }
+    return Boolean(data);
+  },
+
   async saveWorkout(x) {
     await check(
       getSupabase().from("vl_workouts").upsert({

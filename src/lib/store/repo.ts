@@ -13,6 +13,8 @@ export interface Snapshot {
 export interface Repo {
   mode: "local" | "supabase";
   loadAll(): Promise<Snapshot>;
+  /** 이 계정이 앱 소유자인지 (로컬 모드는 항상 true) */
+  checkOwner(): Promise<boolean>;
   saveWorkout(w: WorkoutEntry): Promise<void>;
   deleteWorkout(id: string): Promise<void>;
   saveMeal(m: MealEntry): Promise<void>;

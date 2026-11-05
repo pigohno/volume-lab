@@ -23,10 +23,14 @@ export function LoginScreen() {
     setBusy(true);
     const { error } = await getSupabase().auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      // 개인 전용: 이 앱에서는 새 계정을 만들지 않습니다.
+      options: { emailRedirectTo: window.location.origin, shouldCreateUser: false },
     });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (/signup|not allowed|not found/i.test(error.message)) return toast.error("등록된 계정이 아니에요.");
+      return toast.error(error.message);
+    }
     setSent(true);
     toast.success("메일을 보냈어요. 링크를 누르거나 코드를 입력해 주세요.");
   }
@@ -44,7 +48,7 @@ export function LoginScreen() {
       <div className="w-full max-w-sm">
         <Logo className="size-10" />
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">Volume Lab</h1>
-        <p className="mt-1 text-sm text-muted-foreground">이메일로 로그인하면 어느 기기에서든 기록이 이어져요.</p>
+        <p className="mt-1 text-sm text-muted-foreground">개인 전용 앱이에요. 등록된 이메일로 로그인해 주세요.</p>
 
         {!sent ? (
           <form onSubmit={send} className="mt-8 space-y-3">

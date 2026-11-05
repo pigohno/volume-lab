@@ -5,6 +5,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "Volume Lab", template: "%s · Volume Lab" },
   description: "볼륨을 키우는 운동 기록, 단백질 중심 식단, 인바디 추적",
+  // 개인 전용 앱 — 검색엔진에 노출하지 않습니다.
+  robots: { index: false, follow: false },
   appleWebApp: { capable: true, title: "Volume Lab", statusBarStyle: "black-translucent" },
 };
 

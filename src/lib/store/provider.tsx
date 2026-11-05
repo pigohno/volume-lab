@@ -7,7 +7,7 @@ import type { Exercise, FoodProduct, Goals, InbodyRecord, MealEntry, SharePayloa
 import { DEFAULT_GOALS } from "@/lib/types";
 import { EXERCISES } from "@/lib/data/exercises";
 import { CARDIO } from "@/lib/data/cardio";
-import { getSupabase, supabaseEnabled } from "@/lib/supabase";
+import { getSupabase, isAuthError, supabaseEnabled } from "@/lib/supabase";
 import { localRepo } from "./local-repo";
 import { supabaseRepo } from "./supabase-repo";
 import type { Repo, Snapshot } from "./repo";
@@ -17,6 +17,10 @@ interface Store extends Snapshot {
   mode: Repo["mode"];
   session: Session | null;
   authChecked: boolean;
+  /** 소유자가 아닌 계정으로 로그인한 경우 */
+  denied: boolean;
+  loadError: string | null;
+  reload: () => void;
   getExercise: (id: string) => Exercise | undefined;
   allExercises: Exercise[];
   saveWorkout: (w: WorkoutEntry) => void;
@@ -61,6 +65,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = React.useState<Session | null>(null);
   const [authChecked, setAuthChecked] = React.useState(!supabaseEnabled);
 
+  const [denied, setDenied] = React.useState(false);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [reloadKey, setReloadKey] = React.useState(0);
+  const loadErrorRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    loadErrorRef.current = loadError;
+  }, [loadError]);
+  const reload = React.useCallback(() => setReloadKey((k) => k + 1), []);
+
   // Supabase 모드: 세션을 확인하고 변경을 구독
   React.useEffect(() => {
     if (!supabaseEnabled) return;
@@ -69,9 +82,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSession(data.session);
       setAuthChecked(true);
     });
-    const { data } = sb.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => data.subscription.unsubscribe();
-  }, []);
+    const { data } = sb.auth.onAuthStateChange((event, s) => {
+      setSession(s);
+      // 토큰이 갱신됐는데 직전 로딩이 실패한 상태라면 다시 불러오기
+      if (event === "TOKEN_REFRESHED" && loadErrorRef.current) reload();
+    });
+    // 앱을 다시 열었을 때(백그라운드 → 화면) 실패 상태면 다시 불러오기
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && loadErrorRef.current) reload();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      data.subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [reload]);
 
   const userId = session?.user.id;
 
@@ -79,18 +104,37 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (supabaseEnabled && !userId) {
       setSnap(EMPTY);
       setReady(false);
+      setDenied(false);
       return;
     }
     let alive = true;
-    repo
-      .loadAll()
-      .then((s) => alive && setSnap(s))
-      .catch((e: Error) => toast.error(`데이터를 불러오지 못했어요: ${e.message}`))
-      .finally(() => alive && setReady(true));
+
+    async function load(retry: boolean): Promise<void> {
+      try {
+        if (!(await repo.checkOwner())) {
+          if (alive) setDenied(true);
+          return;
+        }
+        const s = await repo.loadAll();
+        if (!alive) return;
+        setSnap(s);
+        setDenied(false);
+        setLoadError(null);
+      } catch (e) {
+        // 토큰이 만료된 채로 요청이 나간 경우: 세션을 갱신하고 한 번 더 시도
+        if (retry && supabaseEnabled && isAuthError(e)) {
+          const { error } = await getSupabase().auth.refreshSession();
+          if (!error) return load(false);
+        }
+        if (alive) setLoadError((e as Error).message);
+      }
+    }
+
+    load(true).finally(() => alive && setReady(true));
     return () => {
       alive = false;
     };
-  }, [repo, userId]);
+  }, [repo, userId, reloadKey]);
 
   // 낙관적 업데이트: 화면 먼저 바꾸고, 저장 실패 시 알림 + 되돌림
   const run = React.useCallback(
@@ -100,10 +144,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         prev = s;
         return apply(s);
       });
-      persist().catch((e: Error) => {
-        toast.error(`저장에 실패했어요: ${e.message}`);
-        if (prev) setSnap(prev);
-      });
+      persist()
+        .catch(async (e: Error) => {
+          // 토큰 만료로 실패했으면 세션 갱신 후 한 번 더 저장
+          if (supabaseEnabled && isAuthError(e) && !(await getSupabase().auth.refreshSession()).error) return persist();
+          throw e;
+        })
+        .catch((e: Error) => {
+          toast.error(`저장에 실패했어요: ${e.message}`);
+          if (prev) setSnap(prev);
+        });
     },
     [],
   );
@@ -117,6 +167,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     mode: repo.mode,
     session,
     authChecked,
+    denied,
+    loadError,
+    reload,
     allExercises,
     getExercise: (id) => exMap.get(id),
     saveWorkout: (w) => run((s) => ({ ...s, workouts: upsert(s.workouts, w) }), () => repo.saveWorkout(w)),
@@ -134,6 +187,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     createShare: (p) => repo.createShare(p),
     signOut: async () => {
       if (supabaseEnabled) await getSupabase().auth.signOut();
+      setDenied(false);
+      setLoadError(null);
     },
   };
 
